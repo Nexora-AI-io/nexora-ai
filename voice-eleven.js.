@@ -1,0 +1,54 @@
+// pages/api/voice-eleven.js
+import axios from "axios";
+import OpenAI from "openai";
+import fs from "fs";
+import path from "path";
+
+// initialize OpenAI
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const { message } = req.body;
+  if (!message) {
+    return res.status(400).json({ error: "No message provided" });
+  }
+
+  try {
+    // 1) Get AI reply
+    const chat = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: message }],
+    });
+    const reply = chat.choices[0].message.content.trim();
+
+    // 2) Generate realistic voice via ElevenLabs
+    const voiceId = "Rachel";  // you can change to any ElevenLabs voice ID
+    const elevenRes = await axios({
+      method: "POST",
+      url: `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+      headers: {
+        "xi-api-key": process.env.ELEVENLABS_API_KEY,
+        "Content-Type": "application/json",
+      },
+      responseType: "arraybuffer",
+      data: {
+        text: reply,
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+      },
+    });
+
+    // 3) Write the audio file to public/
+    const audioPath = path.join(process.cwd(), "public", "voice.mp3");
+    fs.writeFileSync(audioPath, Buffer.from(elevenRes.data));
+
+    // 4) Return the text reply and path to audio
+    return res.status(200).json({ reply, audio: "/voice.mp3" });
+  } catch (err) {
+    console.error("Voice generation error:", err);
+    return res.status(500).json({ error: "Voice generation failed", details: err.message });
+  }
+}
