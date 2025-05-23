@@ -1,0 +1,10 @@
+import VoiceAssistant from '../components/VoiceAssistant';
+
+export default function Home() {
+  return (
+    <div>
+      <h1>Welcome to Nexora AI</h1>
+      <VoiceAssistant />
+    </div>
+  );
+}
